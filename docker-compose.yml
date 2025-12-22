@@ -24,6 +24,7 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
 
   postgres:
     image: postgres:15
@@ -59,8 +60,12 @@ services:
       - "9090:9090"
     volumes:
       - ./charts/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=15d'  # Keep data for 15 days
+      - '--storage.tsdb.retention.size=512MB'  # Or delete if size > 5GB
 
   grafana:
     image: grafana/grafana
@@ -77,6 +82,19 @@ services:
       - "8080:8080"
     depends_on:
       - kafka
+    environment:
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - SERVER_TOMCAT_ACCESSLOG_ENABLED=true
+  anomaly-detector:
+    build: 
+      context: ./services/anomaly
+      dockerfile: Dockerfile
+    container_name: anomaly-detector
+    depends_on:
+      - kafka
+    environment:
+      - KAFKA_BROKER=kafka:29092
 
 volumes:
   postgres_data:
+  prometheus-data:

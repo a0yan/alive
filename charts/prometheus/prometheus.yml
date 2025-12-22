@@ -1,7 +1,12 @@
 global:
-  scrape_interval: 15s
+  scrape_interval: 5s # Scrape often for dev
 
 scrape_configs:
-  - job_name: 'alive-services'
+  - job_name: 'ingestion-service'
+    metrics_path: '/actuator/prometheus'
     static_configs:
-      - targets: ['host.docker.internal:8000'] # Ingestion service (Week 1, Day 2)
+      - targets: ['ingestion:8080']
+
+  - job_name: 'anomaly-detector'
+    static_configs:
+      - targets: ['anomaly-detector:8001']

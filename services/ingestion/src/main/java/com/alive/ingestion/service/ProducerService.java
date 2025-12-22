@@ -20,7 +20,7 @@ public class ProducerService {
             .whenComplete((result, ex) -> {
                 if (ex == null) {
                     // Success logging (optional in high-load prod)
-                    // System.out.println("Sent event=[" + event.getEventId() + "]");
+                    System.out.println("Sent event=[" + event.getEventId() + "]");
                 } else {
                     // Error logging - Critical
                     System.err.println("Unable to send event=[" + event.getEventId() + "] due to : " + ex.getMessage());

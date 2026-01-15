@@ -1,65 +1,71 @@
-import requests
 import time
+import requests
+import json
 import random
 import uuid
-from datetime import datetime, timezone
+import csv  # <--- NEW
+import os
 
-# API Configuration
 API_URL = "http://localhost:8080/v1/events"
-HEADERS = {"Content-Type": "application/json"}
+SERVICES = ["payment-service", "order-service", "user-service"]
 
-# Simulation Settings
-TOTAL_EVENTS = 50
-DELAY_SECONDS = 0.5  # Speed of simulation
-
-def generate_payload():
-    """Generates a realistic event payload"""
-    # 10% chance of an anomaly (High Latency)
-    is_anomaly = random.random() < 0.10
-    
-    if is_anomaly:
-        latency = random.uniform(2.5, 5.0) # > 2.0s triggers the rule
-        print(f" Generating ANOMALY: Latency {latency:.2f}s")
-    else:
-        latency = random.uniform(0.1, 1.5) # Normal traffic
-
-    return {
-        "event_id": str(uuid.uuid4()),
-        "source": "payment-service",
-        "type": "metric",
-        "timestamp": datetime.utcnow().isoformat() + "Z",
-        "payload": {
-            "name": "latency",
-            "value": latency,
-            "unit": "seconds",
-            "host": "pod-payment-01"
-        }
-    }
+# File to save training data
+CSV_FILE = "../training_data.csv"
 
 def run_simulation():
-    print(f" Starting Simulation: Targeting {API_URL}")
-    print("------------------------------------------------")
-
-    for i in range(1, TOTAL_EVENTS + 1):
-        event = generate_payload()
+    # Setup CSV Writer
+    file_exists = os.path.isfile(CSV_FILE)
+    
+    with open(CSV_FILE, 'a', newline='') as csvfile:
+        fieldnames = ['latency', 'metadata_size', 'source_id']
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         
-        try:
-            # Send to Spring Boot Ingestion API
-            response = requests.post(API_URL, json=event, headers=HEADERS)
+        # Only write header if file is new
+        if not file_exists:
+            writer.writeheader()
+
+        print(f" Generator Started. Saving data to {CSV_FILE}...")
+        
+        while True:
+            # 1. Generate Random Data
+            source = random.choice(SERVICES)
             
-            if response.status_code == 202:
-                print(f"[{i}/{TOTAL_EVENTS}]  Sent: {event['payload']['value']:.2f}s latency")
+            # Normal behavior: Latency between 0.1 and 0.5
+            # Anomaly behavior: Random spikes
+            if random.random() < 0.05: # 5% chance of anomaly
+                latency = random.uniform(2.0, 5.0) 
             else:
-                print(f"[{i}/{TOTAL_EVENTS}]  Failed: {response.status_code} - {response.text}")
-        
-        except requests.exceptions.ConnectionError:
-            print(f"[{i}/{TOTAL_EVENTS}]  Connection Refused! Is Ingestion Service (localhost:8080) running?")
-            break
+                latency = random.uniform(0.1, 0.5)
 
-        time.sleep(DELAY_SECONDS)
+            metadata = {"region": "us-east-1", "user": "test"}
+            metadata_size = len(json.dumps(metadata))
+            
+            # Map source string to a number (ML models like numbers)
+            source_mapping = {"payment-service": 1, "order-service": 2, "user-service": 3}
+            source_id = source_mapping.get(source, 0)
 
-    print("------------------------------------------------")
-    print(" Simulation Complete.")
+            # 2. Save to CSV (The "Memory" for ML)
+            writer.writerow({
+                'latency': latency,
+                'metadata_size': metadata_size,
+                'source_id': source_id
+            })
+            csvfile.flush() # Ensure it writes immediately
+
+            # 3. Send to API (Keep the dashboard alive)
+            event = {
+                "event_id": str(uuid.uuid4()),
+                "source": source,
+                "payload": {"value": latency, "metadata": metadata}
+            }
+            
+            try:
+                requests.post(API_URL, json=event)
+                print(f"Recorded: {latency:.2f}s")
+            except:
+                print("API unreachable, but CSV saved.")
+
+            time.sleep(0.1)
 
 if __name__ == "__main__":
     run_simulation()

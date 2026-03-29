@@ -1,3 +1,6 @@
 services/ingestion/target/
 .env
 *.pkl
+__pycache__/
+*.pyc
+*.pyo

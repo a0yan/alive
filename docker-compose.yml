@@ -146,6 +146,21 @@ services:
       # Mount trained model from tooling/ — retrain locally, restart container to pick up changes
       - ./tooling/isolation_forest.pkl:/app/models/isolation_forest.pkl:ro
 
+  llm-reasoner:
+    build: ./services/llm-reasoner
+    container_name: llm-reasoner
+    ports:
+      - "8082:8082"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      - KAFKA_BROKER=${KAFKA_BROKER:-kafka:29092}
+      - LLM_PROVIDER=${LLM_PROVIDER:-openai}
+      - LLM_MODEL=${LLM_MODEL:-gpt-4o-mini}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+
 volumes:
   postgres_data:
   prometheus-data:

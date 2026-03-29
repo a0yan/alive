@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -E \"\\(README|CLAUDE|cursorrules|\\\\.md$\\)\")",
+      "Bash(python -c \":*)",
+      "Bash(git -C /c/Projects/alive log --oneline -15)"
+    ]
+  }
+}

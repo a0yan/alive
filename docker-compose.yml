@@ -8,12 +8,18 @@ services:
       ZOOKEEPER_TICK_TIME: 2000
     ports:
       - "2181:2181"
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo ruok | nc localhost 2181 | grep imok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   kafka:
     image: confluentinc/cp-kafka:7.3.0
     container_name: kafka
     depends_on:
-      - zookeeper
+      zookeeper:
+        condition: service_healthy
     ports:
       - "9092:9092"
     environment:
@@ -25,6 +31,20 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      # 6 partitions by default — allows up to 6 parallel anomaly-detector instances
+      # without manual topic creation. Increase when scaling beyond 6 consumers.
+      KAFKA_NUM_PARTITIONS: 6
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 1
+      # Keep messages for 24h; prevents unbounded disk growth in a long-running dev env
+      KAFKA_LOG_RETENTION_HOURS: 24
+      KAFKA_LOG_RETENTION_BYTES: 1073741824   # 1 GB cap per topic partition
+      # Prevent Kafka from OOMing in a constrained Docker environment
+      KAFKA_HEAP_OPTS: "-Xms512m -Xmx1g"
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
 
   postgres:
     image: postgres:15
@@ -32,26 +52,32 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_USER: alive
-      POSTGRES_DB: alive
-      POSTGRES_PASSWORD: alive
+      POSTGRES_USER: ${POSTGRES_USER:-alive}
+      POSTGRES_DB: ${POSTGRES_DB:-alive}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-alive}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-alive}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   temporal:
     image: temporalio/auto-setup:1.19.0
     container_name: temporal
     ports:
       - "7233:7233"
-      - "8088:8088" # Temporal UI
+      - "8088:8088"
     environment:
       - DB=postgresql
       - DB_PORT=5432
-      - POSTGRES_USER=alive
-      - POSTGRES_PWD=alive
+      - POSTGRES_USER=${POSTGRES_USER:-alive}
+      - POSTGRES_PWD=${POSTGRES_PASSWORD:-alive}
       - POSTGRES_SEEDS=postgres
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
 
   prometheus:
     image: prom/prometheus
@@ -64,8 +90,8 @@ services:
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
-      - '--storage.tsdb.retention.time=15d'  # Keep data for 15 days
-      - '--storage.tsdb.retention.size=512MB'  # Or delete if size > 5GB
+      - '--storage.tsdb.retention.time=15d'
+      - '--storage.tsdb.retention.size=512MB'
 
   grafana:
     image: grafana/grafana
@@ -74,6 +100,12 @@ services:
       - "3000:3000"
     depends_on:
       - prometheus
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+    volumes:
+      # Auto-provisions Prometheus as a datasource — no manual UI setup required
+      - ./charts/grafana/provisioning:/etc/grafana/provisioning
+      - grafana-data:/var/lib/grafana
 
   ingestion:
     build: ./services/ingestion
@@ -81,20 +113,40 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - kafka
+      kafka:
+        condition: service_healthy
     environment:
-      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BROKER:-kafka:29092}
       - SERVER_TOMCAT_ACCESSLOG_ENABLED=true
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep -q UP || exit 1"]
+      interval: 15s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
   anomaly-detector:
-    build: 
+    build:
       context: ./services/anomaly
       dockerfile: Dockerfile
     container_name: anomaly-detector
+    ports:
+      - "8001:8001"
     depends_on:
-      - kafka
+      kafka:
+        condition: service_healthy
     environment:
-      - KAFKA_BROKER=kafka:29092
+      - KAFKA_BROKER=${KAFKA_BROKER:-kafka:29092}
+      - LATENCY_THRESHOLD=${LATENCY_THRESHOLD:-2.0}
+      - DETECTION_MODE=${DETECTION_MODE:-rule-only}
+      - ANOMALY_CONFIDENCE_THRESHOLD=${ANOMALY_CONFIDENCE_THRESHOLD:-0.8}
+      # Point to the volume-mounted model file
+      - MODEL_PATH=/app/models/isolation_forest.pkl
+    volumes:
+      # Mount trained model from tooling/ — retrain locally, restart container to pick up changes
+      - ./tooling/isolation_forest.pkl:/app/models/isolation_forest.pkl:ro
 
 volumes:
   postgres_data:
   prometheus-data:
+  grafana-data:

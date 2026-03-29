@@ -1,1 +1,3 @@
 services/ingestion/target/
+.env
+*.pkl

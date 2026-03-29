@@ -1,5 +1,6 @@
 package com.alive.ingestion.model;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import java.util.Map;
@@ -7,7 +8,9 @@ import java.util.UUID;
 
 @Data
 public class Event {
-    
+
+    // Wire format: snake_case per AIRA schema v1
+    @JsonProperty("event_id")
     private String eventId;
     
     @NotNull(message = "Source is mandatory")

@@ -11,6 +11,11 @@ RUN mvn clean package -DskipTests -q
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
 
+# Download OTel Java agent — pinned version for reproducibility.
+# The agent auto-instruments Spring Boot (HTTP, Kafka, JDBC) with zero code changes.
+RUN wget -q -O /otel-agent.jar \
+  https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.6.0/opentelemetry-javaagent.jar
+
 # Non-root user for security hardening
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 USER appuser
@@ -29,6 +34,7 @@ ENTRYPOINT ["java", \
   "-XX:MaxGCPauseMillis=200", \
   "-XX:+ExitOnOutOfMemoryError", \
   "-Djava.security.egd=file:/dev/./urandom", \
+  "-javaagent:/otel-agent.jar", \
   "-jar", "app.jar"]
 
 HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \

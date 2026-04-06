@@ -4,9 +4,24 @@ import os
 import time
 from confluent_kafka import Consumer, Producer, KafkaError
 from prometheus_client import start_http_server, Counter, Gauge, Histogram
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 log = logging.getLogger(__name__)
+
+# ─── OpenTelemetry Setup ───────────────────────────────────────────────────────
+_otel_endpoint = os.getenv('OTEL_EXPORTER_OTLP_ENDPOINT', 'http://jaeger:4317')
+_provider = TracerProvider()
+_provider.add_span_processor(
+    BatchSpanProcessor(OTLPSpanExporter(endpoint=_otel_endpoint))
+)
+trace.set_tracer_provider(_provider)
+tracer = trace.get_tracer("anomaly-detector")
+_propagator = TraceContextTextMapPropagator()
 
 # ─── Configuration ─────────────────────────────────────────────────────────────
 KAFKA_BROKER      = os.getenv("KAFKA_BROKER", "kafka:29092")
@@ -199,7 +214,20 @@ def start_consumer() -> None:
                         continue
                     log.error("Kafka consumer error: %s", msg.error())
                     continue
-                process_event(msg.value().decode('utf-8'))
+                # Extract W3C trace context from Kafka headers so this span
+                # links back to the ingestion span produced by the Java OTel agent.
+                headers = dict(msg.headers() or [])
+                carrier = {
+                    k: v.decode() if isinstance(v, bytes) else v
+                    for k, v in headers.items()
+                }
+                ctx = _propagator.extract(carrier)
+                with tracer.start_as_current_span(
+                    "anomaly_detector.process_event",
+                    context=ctx,
+                    kind=trace.SpanKind.CONSUMER,
+                ):
+                    process_event(msg.value().decode('utf-8'))
 
             # Single commit covers the entire batch — at-least-once semantics
             consumer.commit(asynchronous=False)

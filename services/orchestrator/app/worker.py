@@ -3,6 +3,7 @@ import json
 import logging
 import os
 
+import uvicorn
 from confluent_kafka import Consumer, KafkaError
 from temporalio.client import Client
 from temporalio.worker import Worker
@@ -11,6 +12,7 @@ from app.activities.ask_llm import ask_llm_activity
 from app.activities.decide import decide_activity
 from app.activities.enrich import enrich_activity
 from app.activities.execute import execute_activity
+from app.api import app as fastapi_app
 from app.workflows.incident_workflow import IncidentWorkflow
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -19,6 +21,7 @@ log = logging.getLogger(__name__)
 TEMPORAL_HOST = os.getenv("TEMPORAL_HOST", "temporal:7233")
 KAFKA_BROKER = os.getenv("KAFKA_BROKER", "kafka:29092")
 TASK_QUEUE = "incident-queue"
+API_PORT = int(os.getenv("ORCHESTRATOR_API_PORT", "8089"))
 
 
 async def kafka_trigger(client: Client) -> None:
@@ -60,6 +63,12 @@ async def kafka_trigger(client: Client) -> None:
         consumer.close()
 
 
+async def run_api() -> None:
+    config = uvicorn.Config(fastapi_app, host="0.0.0.0", port=API_PORT, log_level="info")
+    server = uvicorn.Server(config)
+    await server.serve()
+
+
 async def main() -> None:
     log.info("Connecting to Temporal at %s", TEMPORAL_HOST)
     client = await Client.connect(TEMPORAL_HOST)
@@ -71,8 +80,8 @@ async def main() -> None:
         activities=[enrich_activity, ask_llm_activity, decide_activity, execute_activity],
     )
 
-    log.info("Orchestrator worker started on queue '%s'", TASK_QUEUE)
-    await asyncio.gather(worker.run(), kafka_trigger(client))
+    log.info("Orchestrator worker started on queue '%s', API on :%d", TASK_QUEUE, API_PORT)
+    await asyncio.gather(worker.run(), kafka_trigger(client), run_api())
 
 
 if __name__ == "__main__":

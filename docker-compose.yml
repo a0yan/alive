@@ -190,10 +190,13 @@ services:
         condition: service_healthy
     environment:
       - KAFKA_BROKER=${KAFKA_BROKER:-kafka:29092}
+      - ORCHESTRATOR_URL=http://orchestrator:8089
 
   orchestrator:
     build: ./services/orchestrator
     container_name: orchestrator
+    ports:
+      - "8089:8089"
     depends_on:
       kafka:
         condition: service_healthy
@@ -206,6 +209,24 @@ services:
       - TEMPORAL_HOST=temporal:7233
       - DATABASE_URL=postgresql://${POSTGRES_USER:-alive}:${POSTGRES_PASSWORD:-alive}@postgres:5432/${POSTGRES_DB:-alive}
       - ANOMALY_CONFIDENCE_THRESHOLD=${ANOMALY_CONFIDENCE_THRESHOLD:-0.8}
+      - EXECUTOR_URL=http://executor-agent:8090
+      - LLM_PROVIDER=${LLM_PROVIDER:-openai}
+      - LLM_MODEL=${LLM_MODEL:-gpt-4o-mini}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    restart: on-failure
+
+  executor-agent:
+    build: ./services/executor-agent
+    container_name: executor-agent
+    ports:
+      - "8090:8090"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-alive}:${POSTGRES_PASSWORD:-alive}@postgres:5432/${POSTGRES_DB:-alive}
+      - K8S_NAMESPACE=${K8S_NAMESPACE:-default}
     restart: on-failure
 
 volumes:

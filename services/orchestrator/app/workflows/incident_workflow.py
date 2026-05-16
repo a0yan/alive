@@ -32,7 +32,7 @@ class IncidentWorkflow:
         llm_response = await workflow.execute_activity(
             ask_llm_activity,
             {**anomaly, "context": context},
-            start_to_close_timeout=timedelta(seconds=60),
+            start_to_close_timeout=timedelta(seconds=120),
             retry_policy=_RETRY,
         )
 
@@ -45,6 +45,7 @@ class IncidentWorkflow:
 
         if decision == "pending_approval":
             await workflow.wait_condition(lambda: self._approved)
+            decision = "approved"
 
         result = await workflow.execute_activity(
             execute_activity,

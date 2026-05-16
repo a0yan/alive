@@ -1,37 +1,47 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { AnomalyCard, Anomaly } from './AnomalyCard';
+import { AnomalyCard, Anomaly, LLMResult } from './AnomalyCard';
 
 const MAX_ANOMALIES = 50;
 
 export function AnomalyFeed() {
   const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
+  const [llmMap, setLlmMap] = useState<Record<string, LLMResult>>({});
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
     const es = new EventSource('/api/events/stream');
-
     es.onopen = () => setConnected(true);
-
     es.onmessage = (event: MessageEvent) => {
       try {
         const anomaly: Anomaly = JSON.parse(event.data as string);
-        // Prepend so newest is at the top; cap at MAX_ANOMALIES to prevent unbounded growth.
         setAnomalies(prev => [anomaly, ...prev].slice(0, MAX_ANOMALIES));
       } catch {
-        console.error('Failed to parse SSE message', event.data);
+        console.error('Failed to parse anomaly SSE', event.data);
       }
     };
-
     es.onerror = () => setConnected(false);
+    return () => es.close();
+  }, []);
 
+  useEffect(() => {
+    const es = new EventSource('/api/llm/stream');
+    es.onmessage = (event: MessageEvent) => {
+      try {
+        const result: LLMResult = JSON.parse(event.data as string);
+        if (result.anomaly_id) {
+          setLlmMap(prev => ({ ...prev, [result.anomaly_id]: result }));
+        }
+      } catch {
+        console.error('Failed to parse LLM SSE', event.data);
+      }
+    };
     return () => es.close();
   }, []);
 
   return (
     <div>
-      {/* Connection status indicator */}
       <div className="mb-4 flex items-center gap-2">
         <span
           className={`inline-block h-2 w-2 rounded-full ${
@@ -53,7 +63,11 @@ export function AnomalyFeed() {
       ) : (
         <div className="flex flex-col gap-3">
           {anomalies.map(a => (
-            <AnomalyCard key={a.anomaly_id} anomaly={a} />
+            <AnomalyCard
+              key={a.anomaly_id}
+              anomaly={a}
+              llm={llmMap[a.anomaly_id]}
+            />
           ))}
         </div>
       )}

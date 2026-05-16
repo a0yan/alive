@@ -1,8 +1,9 @@
 import json
 import logging
 import os
+import threading
 import time
-from confluent_kafka import Consumer, Producer, KafkaError
+from confluent_kafka import Consumer, Producer, KafkaError, TopicPartition
 from prometheus_client import start_http_server, Counter, Gauge, Histogram
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
@@ -43,6 +44,12 @@ PROCESSING_LATENCY = Histogram(
     'event_processing_duration_seconds',
     'Time to process a single event through the rules engine',
     buckets=[0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5],
+)
+
+# Consumer lag — updated every 30s by background thread; key operational metric for load tests
+CONSUMER_LAG = Gauge(
+    'kafka_consumer_lag_total',
+    'Total consumer lag across all partitions of ingestion.events',
 )
 
 # ─── Kafka Producer ────────────────────────────────────────────────────────────
@@ -164,6 +171,7 @@ def emit_anomaly(original_event: dict, anomaly_type: str, description: str) -> N
     anomaly_event = {
         "anomaly_id": f"anom-{event_id}",
         "source_event_id": event_id,
+        "source": original_event.get('source', 'unknown'),
         "timestamp": original_event.get('timestamp'),
         "type": anomaly_type,
         "description": description,
@@ -191,11 +199,42 @@ def _send_to_dlq(event_json: str, reason: str) -> None:
         log.error("Failed to send to DLQ: %s", e)
 
 
+# ─── Consumer Lag Poller ───────────────────────────────────────────────────────
+def _poll_consumer_lag() -> None:
+    """Background thread: updates CONSUMER_LAG gauge every 30s via watermark offsets."""
+    lag_consumer = Consumer({
+        'bootstrap.servers': KAFKA_BROKER,
+        'group.id': GROUP_ID,
+        'enable.auto.commit': False,
+    })
+    while True:
+        try:
+            metadata = lag_consumer.list_topics('ingestion.events', timeout=5)
+            partitions = [
+                TopicPartition('ingestion.events', p)
+                for p in metadata.topics.get('ingestion.events', type('', (), {'partitions': {}})()).partitions
+            ]
+            if partitions:
+                committed = lag_consumer.committed(partitions, timeout=5)
+                total_lag = 0
+                for tp in committed:
+                    lo, hi = lag_consumer.get_watermark_offsets(tp, timeout=3)
+                    offset = tp.offset if tp.offset >= 0 else lo
+                    total_lag += max(0, hi - offset)
+                CONSUMER_LAG.set(total_lag)
+        except Exception as exc:
+            log.debug("Lag poll error (non-fatal): %s", exc)
+        time.sleep(30)
+
+
 # ─── Main Consumer Loop ────────────────────────────────────────────────────────
 def start_consumer() -> None:
     log.info("Starting Anomaly Consumer | broker=%s mode=%s threshold=%.1f batch=%d",
              KAFKA_BROKER, DETECTION_MODE, LATENCY_THRESHOLD, BATCH_SIZE)
     start_http_server(8001)
+
+    lag_thread = threading.Thread(target=_poll_consumer_lag, daemon=True)
+    lag_thread.start()
 
     try:
         while True:

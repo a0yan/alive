@@ -31,6 +31,7 @@ class AnomalyEvent(BaseModel):
     """Wire format consumed from anomalies.detected (AIRA Schema v1)."""
     anomaly_id: str
     source_event_id: str
+    source: str = "unknown"   # top-level source added in Day 20 integration fix
     timestamp: str
     type: str
     description: str

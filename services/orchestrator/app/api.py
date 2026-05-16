@@ -1,11 +1,16 @@
 import logging
 import os
 from fastapi import FastAPI, HTTPException
+from prometheus_client import make_asgi_app, Counter, Histogram
 from temporalio.client import Client
 from app.db import get_pool
 
 log = logging.getLogger(__name__)
 app = FastAPI(title="AIRA Orchestrator API")
+app.mount("/metrics", make_asgi_app())
+
+APPROVALS = Counter("orchestrator_approvals_total", "Workflow approvals sent")
+APPROVAL_LATENCY = Histogram("orchestrator_approval_latency_seconds", "Approval signal latency")
 
 TEMPORAL_HOST = os.getenv("TEMPORAL_HOST", "temporal:7233")
 
@@ -31,6 +36,7 @@ async def approve(anomaly_id: str, approved_by: str = "dashboard"):
                 workflow_id,
             )
 
+        APPROVALS.inc()
         log.info("Approved workflow=%s by=%s", workflow_id, approved_by)
         return {"status": "approved", "workflow_id": workflow_id}
     except Exception as exc:

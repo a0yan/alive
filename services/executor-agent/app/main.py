@@ -2,6 +2,7 @@ import logging
 import os
 
 from fastapi import FastAPI
+from prometheus_client import make_asgi_app, Counter, Histogram
 from pydantic import BaseModel
 
 from app.db import write_execution_result
@@ -11,6 +12,10 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 log = logging.getLogger(__name__)
 
 app = FastAPI(title="AIRA Executor Agent")
+app.mount("/metrics", make_asgi_app())
+
+EXECUTIONS = Counter("executor_executions_total", "Execution requests processed", ["status"])
+EXECUTION_LATENCY = Histogram("executor_execution_latency_seconds", "Time to process /execute")
 
 
 class ActionTarget(BaseModel):
@@ -64,6 +69,7 @@ async def execute(req: ExecuteRequest):
         exec_status="executed",
     )
 
+    EXECUTIONS.labels(status="executed").inc()
     return {
         "status": "executed",
         "anomaly_id": req.anomaly_id,

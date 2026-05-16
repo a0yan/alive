@@ -14,3 +14,13 @@ scrape_configs:
   - job_name: 'llm-reasoner'
     static_configs:
       - targets: ['llm-reasoner:8082']
+
+  - job_name: 'orchestrator'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['orchestrator:8089']
+
+  - job_name: 'executor-agent'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['executor-agent:8090']

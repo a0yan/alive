@@ -94,6 +94,8 @@ These have defaults in `.env.example` and don't require external credentials.
   - **Purpose:** Database name
   - **Notes:** Auto-created by docker-compose
 
+**Security Note:** Connection string built from separate `POSTGRES_*` env vars (not embedded in `DATABASE_URL`). Prevents credential exposure in logs and secrets scanning.
+
 ### Message Queue (Kafka)
 
 - [ ] **KAFKA_BROKER**

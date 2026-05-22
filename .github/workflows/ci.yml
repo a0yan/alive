@@ -95,3 +95,12 @@ jobs:
             echo "=== Scanning $IMAGE ==="
             trivy image --severity HIGH,CRITICAL --exit-code 1 "$IMAGE" || exit 1
           done
+
+      - name: Push Docker images
+        run: |
+          SERVICES="ingestion anomaly llm-reasoner orchestrator executor-agent dashboard"
+          for service in $SERVICES; do
+            IMAGE="ghcr.io/${{ github.repository }}/$service:${{ github.sha }}"
+            echo "=== Pushing $IMAGE ==="
+            docker push "$IMAGE" || exit 1
+          done

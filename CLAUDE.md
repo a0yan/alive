@@ -199,6 +199,37 @@ pytest services/anomaly/tests/
 
 ---
 
+## Non-Functional Requirements (Pre-Demo Enhancements)
+
+**LLM Flexibility:** If time permits before demo, implement one or more of these to decouple from OpenAI/Anthropic:
+
+### Scenario 1: Any Cloud LLM Provider
+- [ ] Abstract LLM interface (`services/llm-reasoner/llm_provider.py`)
+- [ ] Support multiple providers: OpenAI, Anthropic, Groq, Together AI, HuggingFace
+- [ ] Config via `LLM_PROVIDER` env var (openai | anthropic | groq | huggingface)
+- [ ] **Effort:** 2–3 hours
+- [ ] **Benefit:** No vendor lock-in; demo can use fastest/cheapest provider
+
+### Scenario 2: Local LLM Support (Ollama)
+- [ ] Add Ollama integration (`services/llm-reasoner/providers/ollama.py`)
+- [ ] Connect to local Ollama instance (http://localhost:11434)
+- [ ] Support any Ollama model (llama2, mistral, neural-chat)
+- [ ] Config: `LLM_PROVIDER=ollama`, `OLLAMA_MODEL=mistral`
+- [ ] **Effort:** 1.5–2 hours
+- [ ] **Benefit:** Zero API keys, offline demo, reproducible reasoning
+
+### Scenario 3: Human-in-Loop Fallback
+- [ ] If no LLM configured or API fails → skip reasoning step
+- [ ] Set default confidence 0.5 (ambiguous)
+- [ ] Route all anomalies to approval UI (human decides)
+- [ ] Log: "No LLM configured; awaiting human approval"
+- [ ] **Effort:** 1 hour
+- [ ] **Benefit:** Demo works without any API key, showcases approval workflow
+
+**Priority:** Scenario 2 (Ollama) is quickest. Enables demo without external dependencies.
+
+---
+
 ## Upcoming Build Roadmap
 
 ```

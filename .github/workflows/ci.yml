@@ -81,3 +81,17 @@ jobs:
             echo "=== Building $service ==="
             docker build -f "services/$service/Dockerfile" -t "$IMAGE" . || exit 1
           done
+
+      - name: Scan with Trivy
+        run: |
+          apt-get update && apt-get install -y wget
+          wget -qO- https://aquasecurity.github.io/trivy-repo/deb/public.key | apt-key add -
+          echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | tee /etc/apt/sources.list.d/trivy.list
+          apt-get update && apt-get install -y trivy
+
+          SERVICES="ingestion anomaly llm-reasoner orchestrator executor-agent dashboard"
+          for service in $SERVICES; do
+            IMAGE="ghcr.io/${{ github.repository }}/$service:${{ github.sha }}"
+            echo "=== Scanning $IMAGE ==="
+            trivy image --severity HIGH,CRITICAL --exit-code 1 "$IMAGE" || exit 1
+          done

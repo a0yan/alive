@@ -22,6 +22,8 @@ jobs:
           distribution: 'temurin'
       - name: Install dependencies (Python services)
         run: |
+          pip install pylint pytest pytest-cov
+
           for service in services/anomaly services/llm-reasoner services/orchestrator services/executor-agent; do
             if [ -f "$service/requirements.txt" ]; then
               pip install -r "$service/requirements.txt"
@@ -38,6 +40,6 @@ jobs:
           for service in services/anomaly services/llm-reasoner services/orchestrator services/executor-agent; do
             if [ -d "$service/tests" ]; then
               echo "=== Testing $service ==="
-              pytest "$service/tests" --cov="$service/app" --cov-report=term || exit 1
+              pytest "$service/tests" --cov="$service/app" --cov-report=term --cov-report=xml --cov-fail-under=70 || exit 1
             fi
           done

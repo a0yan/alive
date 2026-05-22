@@ -20,3 +20,24 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
+      - name: Install dependencies (Python services)
+        run: |
+          for service in services/anomaly services/llm-reasoner services/orchestrator services/executor-agent; do
+            if [ -f "$service/requirements.txt" ]; then
+              pip install -r "$service/requirements.txt"
+            fi
+          done
+      - name: Lint with pylint
+        run: |
+          for service in services/anomaly services/llm-reasoner services/orchestrator services/executor-agent; do
+            echo "=== Linting $service ==="
+            pylint "$service/app" --fail-under=8.0 || exit 1
+          done
+      - name: Test with pytest
+        run: |
+          for service in services/anomaly services/llm-reasoner services/orchestrator services/executor-agent; do
+            if [ -d "$service/tests" ]; then
+              echo "=== Testing $service ==="
+              pytest "$service/tests" --cov="$service/app" --cov-report=term || exit 1
+            fi
+          done

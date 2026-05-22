@@ -43,3 +43,6 @@ jobs:
               pytest "$service/tests" --cov="$service/app" --cov-report=term --cov-report=xml --cov-fail-under=70 || exit 1
             fi
           done
+      - name: Build and test Java service
+        run: |
+          mvn -f services/ingestion/pom.xml clean verify

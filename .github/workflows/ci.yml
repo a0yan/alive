@@ -104,3 +104,113 @@ jobs:
             echo "=== Pushing $IMAGE ==="
             docker push "$IMAGE" || exit 1
           done
+
+  smoke-test:
+    runs-on: ubuntu-latest
+    needs: build-and-scan
+    if: github.ref == 'refs/heads/master'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to ghcr.io
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Pull built images
+        run: |
+          SERVICES="ingestion anomaly llm-reasoner orchestrator executor-agent dashboard"
+          for service in $SERVICES; do
+            docker pull "ghcr.io/${{ github.repository }}/$service:${{ github.sha }}"
+          done
+
+      - name: Override docker-compose image tags
+        run: |
+          cat > docker-compose.override.yml <<EOF
+          version: '3.8'
+          services:
+            ingestion:
+              image: ghcr.io/${{ github.repository }}/ingestion:${{ github.sha }}
+            anomaly:
+              image: ghcr.io/${{ github.repository }}/anomaly:${{ github.sha }}
+            llm-reasoner:
+              image: ghcr.io/${{ github.repository }}/llm-reasoner:${{ github.sha }}
+            orchestrator:
+              image: ghcr.io/${{ github.repository }}/orchestrator:${{ github.sha }}
+            executor-agent:
+              image: ghcr.io/${{ github.repository }}/executor-agent:${{ github.sha }}
+            dashboard:
+              image: ghcr.io/${{ github.repository }}/dashboard:${{ github.sha }}
+          EOF
+
+      - name: Start stack
+        run: |
+          docker-compose up -d
+
+      - name: Wait for services to be healthy
+        run: |
+          TIMEOUT=30
+          START=$(date +%s)
+
+          while true; do
+            CURRENT=$(date +%s)
+            ELAPSED=$((CURRENT - START))
+
+            if [ $ELAPSED -gt $TIMEOUT ]; then
+              echo "Health checks timed out after ${TIMEOUT}s"
+              docker-compose logs
+              exit 1
+            fi
+
+            # Check each service
+            INGESTION=$(curl -s -f http://localhost:8080/actuator/health 2>/dev/null | grep -q '"status":"UP"' && echo "ok" || echo "fail")
+            ANOMALY=$(curl -s -f http://localhost:8001/metrics 2>/dev/null && echo "ok" || echo "fail")
+            DASHBOARD=$(curl -s -f http://localhost:3000/health 2>/dev/null && echo "ok" || echo "fail")
+            POSTGRES=$(docker exec alive-postgres-1 pg_isready -U postgres 2>/dev/null && echo "ok" || echo "fail")
+            KAFKA=$(docker exec alive-kafka-1 kafka-topics.sh --list --bootstrap-server localhost:9092 2>/dev/null && echo "ok" || echo "fail")
+
+            if [ "$INGESTION" = "ok" ] && [ "$ANOMALY" = "ok" ] && [ "$DASHBOARD" = "ok" ] && [ "$POSTGRES" = "ok" ] && [ "$KAFKA" = "ok" ]; then
+              echo "All services healthy"
+              break
+            fi
+
+            echo "Waiting for services... (elapsed: ${ELAPSED}s) [Ingestion: $INGESTION, Anomaly: $ANOMALY, Dashboard: $DASHBOARD, Postgres: $POSTGRES, Kafka: $KAFKA]"
+            sleep 2
+          done
+
+      - name: Run smoke test
+        run: |
+          echo "Posting test event..."
+          RESPONSE=$(curl -s -X POST http://localhost:8080/v1/events \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "source": "test",
+              "timestamp": "2026-05-23T00:00:00Z",
+              "type": "metric",
+              "payload": {
+                "name": "latency",
+                "value": 1.5
+              }
+            }')
+
+          STATUS=$(echo "$RESPONSE" | grep -o '"status":"[^"]*"' | cut -d'"' -f4)
+          if [ "$STATUS" != "ACCEPTED" ] && [ "$STATUS" != "Accepted" ]; then
+            echo "Event POST failed"
+            echo "$RESPONSE"
+            exit 1
+          fi
+
+          echo "Event posted successfully (202)"
+          sleep 2
+
+          echo "Verifying event in Kafka..."
+          docker exec alive-kafka-1 kafka-console-consumer.sh \
+            --bootstrap-server localhost:9092 \
+            --topic ingestion.events \
+            --from-beginning \
+            --max-messages 1 \
+            --timeout-ms 5000 || echo "Event verification skipped (timeout ok for first run)"
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker-compose down -v

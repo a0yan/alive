@@ -207,7 +207,11 @@ services:
     environment:
       - KAFKA_BROKER=${KAFKA_BROKER:-kafka:29092}
       - TEMPORAL_HOST=temporal:7233
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-alive}:${POSTGRES_PASSWORD:-alive}@postgres:5432/${POSTGRES_DB:-alive}
+      - POSTGRES_USER=${POSTGRES_USER:-alive}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-alive}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${POSTGRES_DB:-alive}
       - ANOMALY_CONFIDENCE_THRESHOLD=${ANOMALY_CONFIDENCE_THRESHOLD:-0.8}
       - EXECUTOR_URL=http://executor-agent:8090
       - LLM_PROVIDER=${LLM_PROVIDER:-openai}
@@ -225,7 +229,11 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-alive}:${POSTGRES_PASSWORD:-alive}@postgres:5432/${POSTGRES_DB:-alive}
+      - POSTGRES_USER=${POSTGRES_USER:-alive}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-alive}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${POSTGRES_DB:-alive}
       - K8S_NAMESPACE=${K8S_NAMESPACE:-default}
     restart: on-failure
 

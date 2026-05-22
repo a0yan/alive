@@ -203,7 +203,7 @@ jobs:
           sleep 2
 
           echo "Verifying event in Kafka..."
-          docker exec alive-kafka-1 kafka-console-consumer.sh \
+          docker exec kafka kafka-console-consumer.sh \
             --bootstrap-server localhost:9092 \
             --topic ingestion.events \
             --from-beginning \

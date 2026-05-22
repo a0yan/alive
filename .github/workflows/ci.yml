@@ -164,9 +164,9 @@ jobs:
             # Check each service
             INGESTION=$(curl -s -f http://localhost:8080/actuator/health 2>/dev/null | grep -q '"status":"UP"' && echo "ok" || echo "fail")
             ANOMALY=$(curl -s -f http://localhost:8001/metrics 2>/dev/null && echo "ok" || echo "fail")
-            DASHBOARD=$(curl -s -f http://localhost:3000/health 2>/dev/null && echo "ok" || echo "fail")
-            POSTGRES=$(docker exec alive-postgres-1 pg_isready -U postgres 2>/dev/null && echo "ok" || echo "fail")
-            KAFKA=$(docker exec alive-kafka-1 kafka-topics.sh --list --bootstrap-server localhost:9092 2>/dev/null && echo "ok" || echo "fail")
+            DASHBOARD=$(curl -s -f http://localhost:3001/health 2>/dev/null && echo "ok" || echo "fail")
+            POSTGRES=$(docker exec postgres pg_isready -U postgres 2>/dev/null && echo "ok" || echo "fail")
+            KAFKA=$(docker exec kafka kafka-topics.sh --list --bootstrap-server localhost:9092 2>/dev/null && echo "ok" || echo "fail")
 
             if [ "$INGESTION" = "ok" ] && [ "$ANOMALY" = "ok" ] && [ "$DASHBOARD" = "ok" ] && [ "$POSTGRES" = "ok" ] && [ "$KAFKA" = "ok" ]; then
               echo "All services healthy"

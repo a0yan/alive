@@ -46,3 +46,15 @@ jobs:
       - name: Build and test Java service
         run: |
           mvn -f services/ingestion/pom.xml clean verify
+      - name: Install yamllint
+        run: pip install yamllint
+      - name: Lint YAML files
+        run: |
+          cat > .yamllint-config <<EOF
+          extends: default
+          rules:
+            line-length: disable
+            indentation:
+              spaces: any
+          EOF
+          yamllint -c .yamllint-config docker-compose.yml charts/ .github/workflows/ || exit 1

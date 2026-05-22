@@ -55,6 +55,6 @@ jobs:
           rules:
             line-length: disable
             indentation:
-              spaces: any
+              spaces: consistent
           EOF
           yamllint -c .yamllint-config docker-compose.yml charts/ .github/workflows/ || exit 1

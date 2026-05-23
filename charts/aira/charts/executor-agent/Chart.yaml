@@ -1,0 +1,6 @@
+apiVersion: v2
+name: executor-agent
+description: AIRA Executor Agent Service (K8s Action Executor)
+type: application
+version: 0.1.0
+appVersion: "1.0"

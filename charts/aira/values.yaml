@@ -1,0 +1,147 @@
+# AIRA Umbrella Chart Values
+
+# Global settings
+global:
+  imageRegistry: docker.io
+  imagePullPolicy: IfNotPresent
+  kafkaBootstrapServers: kafka:29092
+  postgresqlUser: alive
+  postgresqlPassword: alive
+  postgresqlDatabase: alive
+  postgresqlHost: postgres
+  postgresqlPort: 5432
+  temporalHost: temporal
+  temporalPort: 7233
+
+# Ingestion Service subchart
+ingestion:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: aira/ingestion
+    tag: latest
+  service:
+    type: ClusterIP
+    port: 8080
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 250m
+    limits:
+      memory: 1Gi
+      cpu: 1000m
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+  imagePullPolicy: IfNotPresent
+
+# Anomaly Detector subchart
+anomaly:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: aira/anomaly
+    tag: latest
+  service:
+    type: ClusterIP
+    port: 8001
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 250m
+    limits:
+      memory: 512Mi
+      cpu: 500m
+  config:
+    detectionMode: rule-only
+    latencyThreshold: "2.0"
+    anomalyConfidenceThreshold: "0.8"
+    modelPath: /app/models/isolation_forest.pkl
+  imagePullPolicy: IfNotPresent
+
+# LLM Reasoner subchart
+llm-reasoner:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: aira/llm-reasoner
+    tag: latest
+  service:
+    type: ClusterIP
+    port: 8082
+  resources:
+    requests:
+      memory: 512Mi
+      cpu: 500m
+    limits:
+      memory: 1Gi
+      cpu: 1000m
+  config:
+    llmProvider: openai
+    llmModel: gpt-4o-mini
+  secrets:
+    openaiApiKey: ""
+    anthropicApiKey: ""
+  imagePullPolicy: IfNotPresent
+
+# Orchestrator subchart
+orchestrator:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: aira/orchestrator
+    tag: latest
+  service:
+    type: ClusterIP
+    port: 8089
+  resources:
+    requests:
+      memory: 512Mi
+      cpu: 500m
+    limits:
+      memory: 1Gi
+      cpu: 1000m
+  imagePullPolicy: IfNotPresent
+
+# Executor Agent subchart
+executor-agent:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: aira/executor-agent
+    tag: latest
+  service:
+    type: ClusterIP
+    port: 8090
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 250m
+    limits:
+      memory: 512Mi
+      cpu: 500m
+  config:
+    dryRun: "true"
+  imagePullPolicy: IfNotPresent
+
+# Dashboard subchart
+dashboard:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: aira/dashboard
+    tag: latest
+  service:
+    type: ClusterIP
+    port: 3001
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 250m
+    limits:
+      memory: 512Mi
+      cpu: 500m
+  orchestratorUrl: http://orchestrator:8089
+  imagePullPolicy: IfNotPresent

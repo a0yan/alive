@@ -1,0 +1,29 @@
+replicaCount: 1
+
+image:
+  repository: aira/executor-agent
+  tag: latest
+
+imagePullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 8090
+
+resources:
+  requests:
+    memory: 256Mi
+    cpu: 250m
+  limits:
+    memory: 512Mi
+    cpu: 500m
+
+config:
+  dryRun: "true"
+
+global:
+  postgresqlUser: alive
+  postgresqlPassword: alive
+  postgresqlDatabase: alive
+  postgresqlHost: postgres
+  postgresqlPort: 5432

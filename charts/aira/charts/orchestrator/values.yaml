@@ -1,0 +1,29 @@
+replicaCount: 1
+
+image:
+  repository: aira/orchestrator
+  tag: latest
+
+imagePullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 8089
+
+resources:
+  requests:
+    memory: 512Mi
+    cpu: 500m
+  limits:
+    memory: 1Gi
+    cpu: 1000m
+
+global:
+  kafkaBootstrapServers: kafka:29092
+  postgresqlUser: alive
+  postgresqlPassword: alive
+  postgresqlDatabase: alive
+  postgresqlHost: postgres
+  postgresqlPort: 5432
+  temporalHost: temporal
+  temporalPort: 7233

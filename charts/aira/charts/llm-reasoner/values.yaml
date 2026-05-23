@@ -1,0 +1,30 @@
+replicaCount: 1
+
+image:
+  repository: aira/llm-reasoner
+  tag: latest
+
+imagePullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 8082
+
+resources:
+  requests:
+    memory: 512Mi
+    cpu: 500m
+  limits:
+    memory: 1Gi
+    cpu: 1000m
+
+config:
+  llmProvider: openai
+  llmModel: gpt-4o-mini
+
+secrets:
+  openaiApiKey: ""
+  anthropicApiKey: ""
+
+global:
+  kafkaBootstrapServers: kafka:29092

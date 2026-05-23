@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "anomaly.fullname" . }}
+  labels:
+    {{- include "anomaly.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "anomaly.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "anomaly.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+      - name: anomaly
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.imagePullPolicy | default "IfNotPresent" }}
+        ports:
+        - name: metrics
+          containerPort: 8001
+          protocol: TCP
+        env:
+        - name: KAFKA_BROKER
+          value: {{ .Values.global.kafkaBootstrapServers | quote }}
+        - name: LATENCY_THRESHOLD
+          value: {{ .Values.config.latencyThreshold | quote }}
+        - name: DETECTION_MODE
+          value: {{ .Values.config.detectionMode | quote }}
+        - name: ANOMALY_CONFIDENCE_THRESHOLD
+          value: {{ .Values.config.anomalyConfidenceThreshold | quote }}
+        - name: MODEL_PATH
+          value: {{ .Values.config.modelPath | quote }}
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "http://jaeger:4317"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: metrics
+          initialDelaySeconds: 30
+          periodSeconds: 15
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: metrics
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}

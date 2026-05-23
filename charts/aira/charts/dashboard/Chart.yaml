@@ -1,0 +1,6 @@
+apiVersion: v2
+name: dashboard
+description: AIRA Dashboard (Next.js SSE Frontend)
+type: application
+version: 0.1.0
+appVersion: "1.0"

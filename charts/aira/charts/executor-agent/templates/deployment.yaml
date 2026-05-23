@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "executor-agent.fullname" . }}
+  labels:
+    {{- include "executor-agent.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "executor-agent.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "executor-agent.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "executor-agent.fullname" . }}
+      containers:
+      - name: executor-agent
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.imagePullPolicy | default "IfNotPresent" }}
+        ports:
+        - name: http
+          containerPort: 8090
+          protocol: TCP
+        env:
+        - name: POSTGRES_USER
+          value: {{ .Values.global.postgresqlUser | quote }}
+        - name: POSTGRES_PASSWORD
+          value: {{ .Values.global.postgresqlPassword | quote }}
+        - name: POSTGRES_DB
+          value: {{ .Values.global.postgresqlDatabase | quote }}
+        - name: POSTGRES_HOST
+          value: {{ .Values.global.postgresqlHost | quote }}
+        - name: POSTGRES_PORT
+          value: {{ .Values.global.postgresqlPort | quote }}
+        - name: EXECUTOR_DRY_RUN
+          value: {{ .Values.config.dryRun | quote }}
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 15
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}

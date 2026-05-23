@@ -1,0 +1,28 @@
+replicaCount: 2
+
+image:
+  repository: aira/anomaly
+  tag: latest
+
+imagePullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 8001
+
+resources:
+  requests:
+    memory: 256Mi
+    cpu: 250m
+  limits:
+    memory: 512Mi
+    cpu: 500m
+
+config:
+  detectionMode: rule-only
+  latencyThreshold: "2.0"
+  anomalyConfidenceThreshold: "0.8"
+  modelPath: /app/models/isolation_forest.pkl
+
+global:
+  kafkaBootstrapServers: kafka:29092

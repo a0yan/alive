@@ -4,3 +4,6 @@ services/ingestion/target/
 __pycache__/
 *.pyc
 *.pyo
+
+docs/
+.claude/

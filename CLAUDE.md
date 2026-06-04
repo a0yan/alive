@@ -11,7 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Runs Temporal workflows for safe, human-approved remediation
 - Has full observability (Prometheus, Grafana, OpenTelemetry tracing) and CI/CD
 
-**Current status (~Day 11):** Ingestion service, anomaly consumer (rules + metrics), Isolation Forest ML model, simulation tooling, and all infrastructure fixes are complete. Services not yet built: `dashboard`, `llm-reasoner`, `orchestrator`, `executor-agent`.
+**Current status (Day 30 — complete):** All services built and running: ingestion, anomaly-detector, llm-reasoner, dashboard, orchestrator (Temporal), executor-agent. Helm charts, Grafana dashboards (auto-provisioned), GitHub Actions CI, and README all complete. Tagged v1.0.0.
 
 ---
 

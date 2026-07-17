@@ -42,3 +42,34 @@ def test_openai_omits_response_format_when_no_json_mode(monkeypatch):
     p = OpenAICompatProvider(model="m", base_url="http://x/v1", api_key="k", json_mode=None)
     p.reason({"type": "HighLatency"})
     assert "response_format" not in capture["create"]
+
+
+from app.providers.anthropic import AnthropicProvider
+
+
+def _fake_anthropic_module(capture):
+    mod = types.ModuleType("anthropic")
+
+    class FakeAnthropic:
+        def __init__(self, **kwargs):
+            capture["init"] = kwargs
+            self.messages = types.SimpleNamespace(create=self._create)
+
+        def _create(self, **kwargs):
+            capture["create"] = kwargs
+            return types.SimpleNamespace(content=[types.SimpleNamespace(text=_VALID)])
+
+    mod.Anthropic = FakeAnthropic
+    return mod
+
+
+def test_anthropic_passes_system(monkeypatch):
+    from app.providers.base import SYSTEM_PROMPT
+    capture = {}
+    monkeypatch.setitem(sys.modules, "anthropic", _fake_anthropic_module(capture))
+    p = AnthropicProvider(model="claude", api_key="ak")
+    r = p.reason({"type": "HighLatency"})
+    assert capture["init"] == {"api_key": "ak"}
+    assert capture["create"]["system"] == SYSTEM_PROMPT
+    assert capture["create"]["model"] == "claude"
+    assert r.confidence == 0.6

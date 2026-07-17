@@ -7,3 +7,7 @@ __pycache__/
 
 docs/
 .claude/
+
+# Coverage artifacts
+.coverage
+coverage.xml

@@ -116,10 +116,12 @@ All tuneable values live in `.env` (never committed). Copy `.env.example` to get
 | `LATENCY_THRESHOLD` | `2.0` | Seconds above which a metric event triggers a HighLatency anomaly |
 | `DETECTION_MODE` | `rule-only` | `rule-only` \| `ml-only` \| `hybrid` |
 | `ANOMALY_CONFIDENCE_THRESHOLD` | `0.8` | LLM confidence above which actions auto-execute (below → human approval) |
-| `LLM_PROVIDER` | `openai` | `openai` \| `anthropic` |
-| `LLM_MODEL` | — | Model name for the chosen provider |
-| `OPENAI_API_KEY` | — | Required if `LLM_PROVIDER=openai` |
-| `ANTHROPIC_API_KEY` | — | Required if `LLM_PROVIDER=anthropic` |
+| `LLM_PROVIDER` | `openai` | `openai` \| `anthropic` \| `groq` \| `together` \| `ollama` \| `huggingface` |
+| `LLM_MODEL` | provider default | Model name for the chosen provider (e.g. `gpt-4o-mini`, `mistral`) |
+| `LLM_BASE_URL` | provider default | Override endpoint (self-hosted / proxy) |
+| `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `GROQ_API_KEY` / `TOGETHER_API_KEY` / `HF_TOKEN` | — | Only the active provider's key is required; `ollama` needs none |
 | `POSTGRES_USER` | — | PostgreSQL credentials |
 | `POSTGRES_PASSWORD` | — | PostgreSQL credentials |
 | `POSTGRES_DB` | — | Database name |
+
+**Offline demo (no API key):** set `LLM_PROVIDER=ollama` and `LLM_MODEL=mistral`, run `ollama serve` on the host — the reasoner reaches it via `host.docker.internal`. Any OpenAI-compatible endpoint also works via `LLM_BASE_URL`.

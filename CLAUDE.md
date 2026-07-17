@@ -201,32 +201,14 @@ pytest services/anomaly/tests/
 
 ## Non-Functional Requirements (Pre-Demo Enhancements)
 
-**LLM Flexibility:** If time permits before demo, implement one or more of these to decouple from OpenAI/Anthropic:
+**LLM Flexibility — Scenarios 1 & 2 DONE:** `services/llm-reasoner/app/providers/` holds an `LLMProvider` ABC (shared prompt/parse + one-shot reformat-retry) with two adapters: `OpenAICompatProvider` (OpenAI, Groq, Together AI, Ollama, HuggingFace via configurable `base_url`) and `AnthropicProvider` (native SDK). `llm_client.py` is a registry-driven factory (`ProviderSpec` per provider: base_url, key env var, default model, `json_mode` capability). Env vars: `LLM_PROVIDER` (openai | anthropic | groq | together | ollama | huggingface), `LLM_MODEL`, `LLM_BASE_URL`. Ollama needs no API key (`LLM_PROVIDER=ollama`, `LLM_MODEL=mistral`, host reached via `host.docker.internal:11434`). Tests: `services/llm-reasoner/tests/` (run from `services/llm-reasoner/`, not repo root — `app` package name collides with anomaly's).
 
-### Scenario 1: Any Cloud LLM Provider
-- [ ] Abstract LLM interface (`services/llm-reasoner/llm_provider.py`)
-- [ ] Support multiple providers: OpenAI, Anthropic, Groq, Together AI, HuggingFace
-- [ ] Config via `LLM_PROVIDER` env var (openai | anthropic | groq | huggingface)
-- [ ] **Effort:** 2–3 hours
-- [ ] **Benefit:** No vendor lock-in; demo can use fastest/cheapest provider
-
-### Scenario 2: Local LLM Support (Ollama)
-- [ ] Add Ollama integration (`services/llm-reasoner/providers/ollama.py`)
-- [ ] Connect to local Ollama instance (http://localhost:11434)
-- [ ] Support any Ollama model (llama2, mistral, neural-chat)
-- [ ] Config: `LLM_PROVIDER=ollama`, `OLLAMA_MODEL=mistral`
-- [ ] **Effort:** 1.5–2 hours
-- [ ] **Benefit:** Zero API keys, offline demo, reproducible reasoning
-
-### Scenario 3: Human-in-Loop Fallback
+### Scenario 3: Human-in-Loop Fallback (not built)
 - [ ] If no LLM configured or API fails → skip reasoning step
 - [ ] Set default confidence 0.5 (ambiguous)
 - [ ] Route all anomalies to approval UI (human decides)
 - [ ] Log: "No LLM configured; awaiting human approval"
-- [ ] **Effort:** 1 hour
-- [ ] **Benefit:** Demo works without any API key, showcases approval workflow
-
-**Priority:** Scenario 2 (Ollama) is quickest. Enables demo without external dependencies.
+- Partial today: consumer's `provider_ready()` skips reasoning when the active provider has no key, so pipeline keeps flowing without an LLM.
 
 ---
 

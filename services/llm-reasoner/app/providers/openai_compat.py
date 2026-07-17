@@ -3,6 +3,8 @@ from .base import LLMProvider
 
 
 class OpenAICompatProvider(LLMProvider):
+    """Adapter for any Chat Completions endpoint speaking the OpenAI protocol."""
+
     def __init__(self, model: str, base_url: str, api_key: str, json_mode: str | None):
         super().__init__(model)
         self.base_url = base_url
@@ -10,7 +12,8 @@ class OpenAICompatProvider(LLMProvider):
         self.json_mode = json_mode
 
     def _complete(self, system: str, messages: list[dict]) -> str:
-        from openai import OpenAI  # lazy: keeps unit tests SDK-free
+        # lazy import: keeps unit tests SDK-free
+        from openai import OpenAI  # pylint: disable=import-outside-toplevel,import-error
         client = OpenAI(api_key=self.api_key, base_url=self.base_url)
         kwargs = {}
         if self.json_mode == "json_object":

@@ -33,6 +33,7 @@ Rules:
 
 
 def build_user_message(anomaly: dict) -> str:
+    """Render an anomaly event as the user prompt for the LLM."""
     return (
         f"Anomaly type: {anomaly.get('type')}\n"
         f"Source: {anomaly.get('raw_data', {}).get('source', 'unknown')}\n"
@@ -64,6 +65,7 @@ class LLMProvider(ABC):
         raise NotImplementedError
 
     def reason(self, anomaly: dict) -> LLMResponse:
+        """Prompt the model, parse the reply; on invalid JSON retry once with a correction."""
         user_msg = build_user_message(anomaly)
         raw = self._complete(SYSTEM_PROMPT, [{"role": "user", "content": user_msg}])
         try:

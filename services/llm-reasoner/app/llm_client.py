@@ -60,6 +60,16 @@ def _build_provider(name: str) -> LLMProvider:
     )
 
 
+def provider_ready() -> bool:
+    """True when the configured provider can be built: known name, and either
+    key-less (ollama) or its API key env var is set and non-empty."""
+    name = os.getenv("LLM_PROVIDER", "openai")
+    spec = REGISTRY.get(name)
+    if spec is None:
+        return False
+    return spec.key_env is None or bool(os.getenv(spec.key_env))
+
+
 @lru_cache(maxsize=1)
 def get_provider() -> LLMProvider:
     name = os.getenv("LLM_PROVIDER", "openai")

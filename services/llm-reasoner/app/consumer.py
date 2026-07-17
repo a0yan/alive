@@ -6,7 +6,7 @@ import time
 from confluent_kafka import Consumer, Producer, KafkaError
 from prometheus_client import start_http_server, Counter, Gauge, Histogram
 
-from .llm_client import reason, LLM_PROVIDER, LLM_MODEL
+from .llm_client import reason, provider_ready, LLM_PROVIDER, LLM_MODEL
 from .schema import AnomalyEvent
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
@@ -17,9 +17,8 @@ KAFKA_BROKER = os.getenv("KAFKA_BROKER", "kafka:29092")
 GROUP_ID     = "llm-reasoner-group-v1"
 BATCH_SIZE   = int(os.getenv("CONSUMER_BATCH_SIZE", "50"))
 
-_API_KEY_CONFIGURED = bool(
-    os.getenv("OPENAI_API_KEY") or os.getenv("ANTHROPIC_API_KEY")
-)
+# Provider-aware readiness: key-less providers (ollama) count as configured.
+_API_KEY_CONFIGURED = provider_ready()
 
 # ─── Prometheus Metrics ─────────────────────────────────────────────────────────
 LLM_REQUESTS   = Counter('llm_requests_total', 'LLM calls attempted', ['provider', 'status'])

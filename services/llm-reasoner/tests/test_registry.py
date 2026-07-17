@@ -71,3 +71,25 @@ def test_missing_key_raises(client, monkeypatch):
     monkeypatch.delenv("GROQ_API_KEY", raising=False)
     with pytest.raises(KeyError):
         client.get_provider()
+
+
+def test_provider_ready_with_key(client, monkeypatch):
+    monkeypatch.setenv("LLM_PROVIDER", "openai")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    assert client.provider_ready() is True
+
+
+def test_provider_ready_keyless_ollama(client, monkeypatch):
+    monkeypatch.setenv("LLM_PROVIDER", "ollama")
+    assert client.provider_ready() is True
+
+
+def test_provider_not_ready_without_key(client, monkeypatch):
+    monkeypatch.setenv("LLM_PROVIDER", "groq")
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    assert client.provider_ready() is False
+
+
+def test_provider_not_ready_unknown(client, monkeypatch):
+    monkeypatch.setenv("LLM_PROVIDER", "bogus")
+    assert client.provider_ready() is False

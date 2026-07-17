@@ -4,6 +4,7 @@ parsing, and the LLMProvider ABC with a one-shot reformat-retry template.
 """
 import json
 import logging
+from abc import ABC, abstractmethod
 
 from pydantic import ValidationError
 
@@ -49,3 +50,30 @@ def parse_response(content: str) -> LLMResponse:
         if content.startswith("json"):
             content = content[4:]
     return LLMResponse.model_validate_json(content)
+
+
+class LLMProvider(ABC):
+    """Base class. Subclasses implement _complete; reason() handles parse + retry."""
+
+    def __init__(self, model: str):
+        self.model = model
+
+    @abstractmethod
+    def _complete(self, system: str, messages: list[dict]) -> str:
+        """Return the raw model text for the given system prompt + messages."""
+        raise NotImplementedError
+
+    def reason(self, anomaly: dict) -> LLMResponse:
+        user_msg = build_user_message(anomaly)
+        raw = self._complete(SYSTEM_PROMPT, [{"role": "user", "content": user_msg}])
+        try:
+            return parse_response(raw)
+        except (ValidationError, ValueError) as e:
+            log.warning("LLM output not valid JSON (%s); retrying once with correction", e)
+            correction = (
+                user_msg
+                + "\n\nYour previous reply was NOT valid JSON:\n" + raw
+                + "\n\nReturn ONLY the JSON object, nothing else."
+            )
+            raw2 = self._complete(SYSTEM_PROMPT, [{"role": "user", "content": correction}])
+            return parse_response(raw2)
